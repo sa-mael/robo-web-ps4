@@ -167,6 +167,200 @@ We welcome operators of all ranks. Check the **Mission Board** in your `account.
 4. Open a Pull Request.
 
 ---
+# ARTTOUS — STARTUP & MOTION SEQUENCE SCHEMA
+## IK4=102 | Centurion Firmware
+
+---
+
+## PHASE 0 — BROWSER INIT
+```
+Browser loads http://<robot-ip>
+  │
+  ├─ Three.js 3D robot model rendered
+  ├─ Hardware schematic overlay displayed
+  ├─ WebSocket connects → ws://<robot-ip>:81/
+  ├─ WiFi status badge: OFFLINE → LINK OK
+  └─ All stat badges shown (PCA9685, MPU6050, WIFI, WS)
+```
+
+---
+
+## PHASE 1 — MPU6050 ACQUISITION
+```
+WebSocket receives first telemetry frame {p, r}
+  │
+  ├─ IMU badge: IMU DEAD → IMU LIVE
+  ├─ Horizon indicator activates (pitch/roll displayed)
+  ├─ 3D body mesh begins reflecting real orientation
+  │
+  └─ [GATE] MPU stable for 500ms?
+        NO  → wait, keep polling
+        YES → proceed to PHASE 2
+```
+
+---
+
+## PHASE 2 — MOTOR POWER RAMP PROFILE
+```
+Each motor follows this velocity curve on every movement:
+
+  Power%
+  100% │
+   80% │         ████████████
+   70% │       ██            ██
+       │     ██                ██
+    0% │─────                    ─────
+       │  0%   20%    60%    80%  100%
+          └─────┘└──────────┘└────────┘
+          RAMP-UP  CRUISE    RAMP-DOWN
+
+  Segment A (0–20% of distance):
+    0% → 70% power over 1 second (soft start)
+    Purpose: avoid current spike, smooth mechanical engagement
+
+  Segment B (20–80% of distance):
+    Constant 80% power (cruise)
+    Purpose: efficient travel, stable torque
+
+  Segment C (80–100% of distance):
+    80% → 0% power (mirror of Segment A)
+    Purpose: prevent overshoot, reduce joint impact
+
+  Implementation note:
+    Use sine-eased PWM interpolation:
+    pwm(t) = SERVO_MIN + (SERVO_MAX - SERVO_MIN) * ease(t)
+    ease(t) = 0.5 * (1 - cos(π * t))   [0.0 ≤ t ≤ 1.0]
+```
+
+---
+
+## PHASE 3 — DEFAULT POSITIONING SEQUENCE
+```
+Goal: bring all 16 servos from unknown position to HOME stance
+Rule: activate MAX 4 motors at once (one leg at a time)
+      → prevents power rail sag and I2C bus contention
+
+  STEP 1 — LEG FL (Front-Left) channels 0,1,2,3
+    Apply ramp profile to each joint sequentially
+    Duration: ~1.5s per leg
+
+  STEP 2 — LEG FR (Front-Right) channels 4,5,6,7
+    Apply ramp profile
+    Duration: ~1.5s
+
+  STEP 3 — LEG BL (Back-Left) channels 8,9,10,11
+    Apply ramp profile
+    Duration: ~1.5s
+
+  STEP 4 — LEG BR (Back-Right) channels 12,13,14,15
+    Apply ramp profile
+    Duration: ~1.5s
+
+  Total positioning time: ~6 seconds
+  Power peak per step: 4 motors × ~500mA = ~2A max draw
+
+  [GATE] All 4 legs at HOME position confirmed via PWM echo?
+        YES → proceed to PHASE 4
+```
+
+---
+
+## PHASE 4 — WEIGHT TRANSFER & FIRST STAND
+```
+Robot uses single-leg locomotion model:
+  3 legs FIXED (load-bearing)
+  1 leg MOVING (swing phase)
+
+  Each leg cycle:
+    1. Lift (coxa + femur raise)    ← ramp profile applied
+    2. Extend forward               ← ramp profile applied
+    3. Plant (tibia contact)        ← ramp profile applied
+    4. Push (body translation)      ← ramp profile applied
+
+  Sequence order (diagonal gait):
+    FL lifts → plants
+    BR lifts → plants
+    FR lifts → plants
+    BL lifts → plants
+
+  [GATE] All 4 legs planted?
+        YES → check MPU
+```
+
+---
+
+## PHASE 5 — SECOND MPU STABILIZATION CHECK
+```
+After full stand, wait for IMU to settle:
+  │
+  ├─ Sample pitch/roll at 10Hz for 1 second
+  ├─ Calculate variance of last 10 samples
+  │
+  └─ [GATE] variance < 0.5°?
+        NO  → wait up to 3s, then flag warning
+        YES → proceed to PHASE 6
+```
+
+---
+
+## PHASE 6 — MOTION CALIBRATION
+```
+Performed ONLY after Phase 5 gate passed.
+Tests 4 directional tilts using complementary filter feedback:
+
+  CAL-1: TILT LEFT
+    Shift weight left → read roll delta
+    Expected: roll increases positively
+    Record: zero offset
+
+  CAL-2: TILT RIGHT
+    Shift weight right → read roll delta
+    Expected: roll decreases negatively
+    Record: zero offset
+
+  CAL-3: LEAN FORWARD
+    Shift weight forward → read pitch delta
+    Expected: pitch increases positively
+    Record: zero offset
+
+  CAL-4: LEAN BACKWARD
+    Shift weight backward → read pitch delta
+    Expected: pitch decreases negatively
+    Record: zero offset
+
+  Output: calibration offsets stored in RAM
+  Browser: calibration badges update GREEN
+
+  [COMPLETE] Robot enters READY state
+             Browser UI fully active
+             Gamepad input accepted
+             walk / stand / relax commands enabled
+```
+
+---
+
+## FULL TIMELINE
+```
+t=0s      Browser load + WebSocket connect
+t=0–1s    MPU acquisition + 3D model live
+t=1–2s    IMU stabilization gate (Phase 1)
+t=2–8s    Default positioning, 4 legs × 1.5s (Phase 3)
+t=8–10s   First stand, diagonal gait sequence (Phase 4)
+t=10–11s  Second IMU stabilization gate (Phase 5)
+t=11–14s  4-direction calibration (Phase 6)
+t=14s+    READY — full operation
+```
+
+---
+
+## POWER BUDGET PER PHASE
+```
+Phase 3 (positioning):   4 motors active  → ~2.0A peak
+Phase 4 (locomotion):    4–6 motors swing → ~2.5A peak
+Phase 6 (calibration):   2–4 motors shift → ~1.5A peak
+Idle (all centered):     16 motors hold   → ~0.8A
+Recommended PSU: 5V / 6A minimum (3A per rail if split)
+```
 
 ## /// DISCLAIMER & LEGAL
 
