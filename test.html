@@ -1,72 +1,527 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>ARTTOUS | NOMAD UPLINK</title>
+  <title>ARTTOUS | NOMAD UPLINK v104</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
   <style>
-    :root { --bg-core: #050505; --panel: rgba(10,10,10,0.85); --accent: #7c2ae8; --warn: #e74c3c; --success: #2ecc71; --text: #e0e0e0; --font-tech: 'Orbitron', sans-serif; --font-mono: 'JetBrains Mono', monospace; }
-    body { margin:0; background:var(--bg-core); color:var(--text); font-family:'Inter',sans-serif; overflow:hidden; }
-    canvas { position:absolute; top:0; left:0; z-index:-1; }
-    .ui { position:absolute; width:100%; height:100%; pointer-events:none; display:flex; justify-content:space-between; padding:20px; box-sizing:border-box; }
-    .panel { width:320px; background:var(--panel); border:1px solid #333; padding:20px; pointer-events:auto; display:flex; flex-direction:column; backdrop-filter:blur(5px); }
-    h3 { border-bottom:1px solid #333; padding-bottom:10px; margin:0 0 15px 0; font-size:1rem; letter-spacing:2px; font-family:var(--font-tech); color:#fff; }
-    button { padding:12px; background:transparent; color:#aaa; border:1px solid #444; cursor:pointer; font-family:var(--font-tech); font-size:0.75rem; margin-bottom:8px; width:100%; transition:0.2s; }
-    button:hover { border-color:var(--accent); color:#fff; }
-    button.sel { background:rgba(124,42,232,0.2); border-color:var(--accent); color:#fff; }
-    button.warn { border-color:#444; color:#666; }
-    button.warn:hover { border-color:var(--warn); background:rgba(231,76,60,0.1); color:var(--warn); }
-    input[type=range] { -webkit-appearance:none; width:100%; background:transparent; margin:10px 0 15px 0; cursor:pointer; }
-    input[type=range]::-webkit-slider-runnable-track { height:4px; background:#222; border-radius:2px; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; height:16px; width:8px; background:var(--accent); margin-top:-6px; border-radius:2px; box-shadow:0 0 8px rgba(124,42,232,0.5); }
-    label { font-family:var(--font-mono); font-size:0.7rem; color:#888; display:block; margin-top:5px; }
-    .horizon-box { width:100%; height:120px; background:#000; border:1px solid #333; margin-bottom:15px; position:relative; overflow:hidden; }
-    .horizon-sky { width:300%; height:300%; background:linear-gradient(to bottom,rgba(124,42,232,0.3) 50%,#111 50%); position:absolute; top:-100%; left:-100%; transition:transform 0.05s linear; pointer-events:none; }
-    .horizon-line { width:100%; height:1px; background:var(--accent); position:absolute; top:50%; left:0; box-shadow:0 0 10px var(--accent); }
-    .horizon-data { position:absolute; top:8px; left:8px; font-family:var(--font-mono); font-size:0.75rem; color:#fff; text-shadow:1px 1px 2px #000; }
-    .sticks { display:flex; justify-content:space-between; margin:15px 0; }
-    .stick-box { width:120px; height:120px; border:1px dashed #333; background:#080808; position:relative; border-radius:50%; }
-    .stick-dot { width:10px; height:10px; background:var(--accent); border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); box-shadow:0 0 10px var(--accent); }
-    .status-bar { margin-top:auto; padding-top:15px; border-top:1px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .stat-badge { padding:4px 8px; font-family:var(--font-mono); font-size:0.65rem; border-radius:2px; border:1px solid #333; color:#666; }
-    .stat-badge.ok  { color:var(--success); border-color:var(--success); background:rgba(46,204,113,0.1); }
-    .stat-badge.bad { color:var(--warn); border-color:var(--warn); background:rgba(231,76,60,0.1); }
+    :root {
+      --bg-core: #050505;
+      --panel: rgba(10, 10, 10, 0.85);
+      --accent: #7c2ae8;
+      --warn: #e74c3c;
+      --success: #2ecc71;
+      --text: #e0e0e0;
+      --font-tech: 'Orbitron', Arial, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg-core);
+      color: var(--text);
+      font-family: 'Inter', Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+
+    /* ── STARTUP OVERLAY ── */
+    #startup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(5, 5, 5, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    #startup-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .boot-title {
+      font-family: var(--font-tech);
+      font-size: 2.0rem;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 6px;
+      text-align: center;
+      text-shadow: 0 0 20px rgba(124, 42, 232, 0.6);
+    }
+
+    .boot-subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #888;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .progress-track {
+      width: 400px;
+      height: 6px;
+      background: #1a1a1a;
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #7c2ae8, #00ff00);
+      border-radius: 3px;
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 0 15px rgba(124, 42, 232, 0.8);
+    }
+
+    .boot-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 420px;
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 0 10px;
+    }
+
+    .boot-steps::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .boot-steps::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 2px;
+    }
+
+    .boot-steps::-webkit-scrollbar-thumb {
+      background: #7c2ae8;
+      border-radius: 2px;
+    }
+
+    .boot-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #555;
+      transition: all 0.3s ease;
+      border-left: 2px solid transparent;
+      border-radius: 2px;
+    }
+
+    .boot-step.done {
+      color: var(--success);
+      border-left-color: var(--success);
+    }
+
+    .boot-step.active {
+      color: #fff;
+      border-left-color: var(--accent);
+      background: rgba(124, 42, 232, 0.1);
+      padding-left: 10px;
+    }
+
+    .step-icon {
+      width: 16px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .step-name {
+      flex: 1;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .step-bar {
+      width: 60px;
+      height: 3px;
+      background: #222;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .step-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+
+    .boot-step.done .step-bar-fill {
+      width: 100%;
+      background: var(--success);
+    }
+
+    .boot-step.active .step-bar-fill {
+      animation: pulse-bar 1.4s infinite;
+    }
+
+    @keyframes pulse-bar {
+      0%, 100% { width: 20%; opacity: 0.4; }
+      50% { width: 80%; opacity: 1; }
+    }
+
+    /* ── MAIN UI ── */
+    .ui {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      padding: 20px;
+    }
+
+    .panel {
+      width: 320px;
+      background: var(--panel);
+      border: 1px solid #333;
+      padding: 20px;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(5px);
+      overflow-y: auto;
+      max-height: 100vh;
+      border-radius: 4px;
+      transition: opacity 0.6s ease;
+    }
+
+    .panel.locked {
+      pointer-events: none;
+      opacity: 0.3;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .panel::-webkit-scrollbar-track {
+      background: #1a1a1a;
+    }
+
+    .panel::-webkit-scrollbar-thumb {
+      background: #7c2ae8;
+      border-radius: 2px;
+    }
+
+    h3 {
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+      margin: 0 0 15px 0;
+      font-size: 1rem;
+      letter-spacing: 2px;
+      font-family: var(--font-tech);
+      color: #fff;
+    }
+
+    button {
+      padding: 12px;
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #444;
+      cursor: pointer;
+      font-family: var(--font-tech);
+      font-size: 0.75rem;
+      margin-bottom: 8px;
+      width: 100%;
+      transition: all 0.2s;
+      border-radius: 2px;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.sel {
+      background: rgba(124, 42, 232, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.warn {
+      border-color: #444;
+      color: #666;
+    }
+
+    button.warn:hover:not(:disabled) {
+      border-color: var(--warn);
+      background: rgba(231, 76, 60, 0.1);
+      color: var(--warn);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+      margin: 10px 0 15px 0;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: #222;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 8px;
+      background: var(--accent);
+      margin-top: -6px;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(124, 42, 232, 0.5);
+      cursor: pointer;
+    }
+
+    label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: #888;
+      display: block;
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .horizon-box {
+      width: 100%;
+      height: 120px;
+      background: #000;
+      border: 1px solid #333;
+      margin-bottom: 15px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 2px;
+    }
+
+    .horizon-sky {
+      width: 300%;
+      height: 300%;
+      background: linear-gradient(to bottom, rgba(124, 42, 232, 0.3) 50%, #111 50%);
+      position: absolute;
+      top: -100%;
+      left: -100%;
+      transition: transform 0.05s linear;
+    }
+
+    .horizon-line {
+      width: 100%;
+      height: 1px;
+      background: var(--accent);
+      position: absolute;
+      top: 50%;
+      left: 0;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .horizon-data {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .sticks {
+      display: flex;
+      justify-content: space-between;
+      margin: 15px 0;
+      gap: 10px;
+    }
+
+    .stick-box {
+      flex: 1;
+      aspect-ratio: 1;
+      border: 1px dashed #333;
+      background: #080808;
+      position: relative;
+      border-radius: 50%;
+    }
+
+    .stick-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px var(--accent);
+      transition: transform 0.05s linear;
+    }
+
+    .status-bar {
+      margin-top: auto;
+      padding-top: 15px;
+      border-top: 1px solid #222;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stat-badge {
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      border-radius: 2px;
+      border: 1px solid #333;
+      color: #666;
+      flex: 1;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-badge.ok {
+      color: var(--success);
+      border-color: var(--success);
+      background: rgba(46, 204, 113, 0.1);
+    }
+
+    .stat-badge.bad {
+      color: var(--warn);
+      border-color: var(--warn);
+      background: rgba(231, 76, 60, 0.1);
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px dashed #333;
+      margin: 20px 0 10px 0;
+    }
   </style>
 </head>
 <body>
-<div class="ui">
-  <div class="panel">
-    <h3>FLIGHT DECK</h3>
-    <div class="horizon-box"><div class="horizon-sky" id="sky"></div><div class="horizon-line"></div><div class="horizon-data">PITCH: <span id="val-p" style="color:var(--accent);">0</span>°<br>ROLL: <span id="val-r" style="color:var(--accent);">0</span>°</div></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <button onclick="send({cmd:'mode',val:'stand'})">STAND</button>
-      <button onclick="toggleWalk()" id="btn-walk">AUTO WALK</button>
-    </div>
-    <button onclick="send({cmd:'calib'})" class="warn" style="color:#f1c40f;border-color:#444;">CALIBRATE IMU</button>
-    <div class="sticks"><div class="stick-box"><div id="dot-l" class="stick-dot"></div></div><div class="stick-box"><div id="dot-r" class="stick-dot"></div></div></div>
-    <label>Z-AXIS CLEARANCE (HEIGHT)</label>
-    <input type="range" min="-140" max="-40" value="-60" oninput="send({cmd:'h',val:parseFloat(this.value)})">
-    <button class="warn" onclick="send({cmd:'mode',val:'relax'})" style="margin-top:10px;">RELAX (POWER OFF)</button>
-    <div class="status-bar"><span id="imu-stat" class="stat-badge bad">IMU DEAD</span><span id="net-stat" class="stat-badge bad">OFFLINE</span></div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- STARTUP OVERLAY -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="startup-overlay">
+  <div class="boot-title">ARTTOUS</div>
+  <div class="boot-subtitle">Nomad Uplink v104 — Initializing</div>
+
+  <div class="progress-track">
+    <div class="progress-fill" id="prog-fill"></div>
   </div>
 
-  <div class="panel">
+  <div class="boot-steps" id="boot-steps"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- MAIN UI -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="ui">
+  <div class="panel locked" id="panel-left">
+    <h3>FLIGHT DECK</h3>
+
+    <div class="horizon-box">
+      <div class="horizon-sky" id="sky"></div>
+      <div class="horizon-line"></div>
+      <div class="horizon-data">
+        PITCH: <span id="val-p" style="color: var(--accent);">0.0</span>°<br>
+        ROLL:  <span id="val-r" style="color: var(--accent);">0.0</span>°
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <button onclick="send({cmd: 'mode', val: 'stand'})">STAND</button>
+      <button onclick="toggleWalk()" id="btn-walk">AUTO WALK</button>
+    </div>
+
+    <button onclick="send({cmd: 'calib'})" class="warn" style="color: #f1c40f;"
+            id="btn-calib" disabled>CALIBRATE IMU</button>
+
+    <div class="sticks">
+      <div class="stick-box"><div id="dot-l" class="stick-dot"></div></div>
+      <div class="stick-box"><div id="dot-r" class="stick-dot"></div></div>
+    </div>
+
+    <label>Z-Axis Clearance (Height)</label>
+    <input type="range" min="-140" max="-40" value="-60"
+           oninput="send({cmd: 'h', val: parseFloat(this.value)})">
+
+    <button class="warn" onclick="send({cmd: 'mode', val: 'relax'})" style="margin-top: 10px;">
+      RELAX (POWER OFF)
+    </button>
+
+    <div class="status-bar">
+      <span id="imu-stat" class="stat-badge bad">IMU DEAD</span>
+      <span id="net-stat" class="stat-badge bad">OFFLINE</span>
+    </div>
+  </div>
+
+  <div class="panel locked" id="panel-right">
     <h3>ENGINEERING</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-      <button id="l0" class="sel" onclick="selLeg(0)">LEG FL</button><button id="l1" onclick="selLeg(1)">LEG FR</button>
-      <button id="l2" onclick="selLeg(2)">LEG BL</button><button id="l3" onclick="selLeg(3)">LEG BR</button>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+      <button id="l0" class="sel" onclick="selLeg(0)">LEG FL</button>
+      <button id="l1"             onclick="selLeg(1)">LEG FR</button>
+      <button id="l2"             onclick="selLeg(2)">LEG BL</button>
+      <button id="l3"             onclick="selLeg(3)">LEG BR</button>
     </div>
-    <label>J1_COXA (HIP)</label><input type="range" min="-45" max="45" value="0" oninput="move(0,this.value)"><span id="val-c" style="color:var(--accent);font-size:0.65rem;">0°</span>
-    <label>J2_FEMUR (SHOULDER)</label><input type="range" min="-90" max="90" value="0" oninput="move(1,this.value)"><span id="val-f" style="color:var(--accent);font-size:0.65rem;">0°</span>
-    <label>J3_TIBIA (ELBOW)</label><input type="range" min="-90" max="90" value="0" oninput="move(2,this.value)"><span id="val-t" style="color:var(--accent);font-size:0.65rem;">0°</span>
-    <label style="color:var(--accent);">J4_TWIST (WRIST)</label><input type="range" min="-45" max="45" value="0" oninput="move(3,this.value)"><span id="val-tw" style="color:var(--accent);font-size:0.65rem;">0°</span>
-    <hr style="border:0;border-top:1px dashed #333;margin:20px 0 10px 0;">
+
+    <label>J1 Coxa (Hip)</label>
+    <input type="range" min="-45" max="45" value="0" oninput="move(0, this.value)">
+    <span id="val-c" style="color: var(--accent); font-size: 0.65rem;">0.0°</span>
+
+    <label>J2 Femur (Shoulder)</label>
+    <input type="range" min="-90" max="90" value="0" oninput="move(1, this.value)">
+    <span id="val-f" style="color: var(--accent); font-size: 0.65rem;">0.0°</span>
+
+    <label>J3 Tibia (Elbow)</label>
+    <input type="range" min="-90" max="90" value="0" oninput="move(2, this.value)">
+    <span id="val-t" style="color: var(--accent); font-size: 0.65rem;">0.0°</span>
+
+    <label>J4 Twist (Wrist)</label>
+    <input type="range" min="-45" max="45" value="0" oninput="move(3, this.value)">
+    <span id="val-tw" style="color: var(--accent); font-size: 0.65rem;">0.0°</span>
+
+    <hr>
     <h3>DIAGNOSTICS</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-      <button class="warn" onclick="startTest(1)">TEST 4CH</button><button class="warn" onclick="startTest(2)">TEST 16CH</button>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+      <button class="warn" onclick="startTest(1)">TEST 4CH</button>
+      <button class="warn" onclick="startTest(2)">TEST 16CH</button>
     </div>
-    <button id="stop-btn" class="warn" style="display:none;" onclick="stopTest()">STOP TEST</button>
+
+    <button id="stop-btn" class="warn" style="display: none;" onclick="stopTest()">
+      STOP TEST
+    </button>
   </div>
 </div>
 
@@ -74,81 +529,208 @@
   import * as THREE from 'https://esm.sh/three@0.160.0';
   import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
+  // ── Startup overlay step management ─────────────────────────────────────
+  const STEP_PHASES = [
+    {id: 'websocket', name: 'WebSocket Link'},
+    {id: 'mpu_acquire', name: 'IMU Acquire'},
+    {id: 'mpu_ok', name: 'IMU Stable'},
+    {id: 'motor_fl', name: 'Leg FL — Trapezoidal'},
+    {id: 'motor_fr', name: 'Leg FR — Trapezoidal'},
+    {id: 'motor_bl', name: 'Leg BL — Trapezoidal'},
+    {id: 'motor_br', name: 'Leg BR — Trapezoidal'},
+    {id: 'stabilize', name: 'Body Stabilization'},
+    {id: 'stabilize_ok', name: 'Stabilization OK'},
+    {id: 'ready', name: 'System Ready'}
+  ];
+
+  let currentStepIndex = -1;
+
+  function initBootSteps() {
+    const container = document.getElementById('boot-steps');
+    container.innerHTML = '';
+    STEP_PHASES.forEach((phase, idx) => {
+      const el = document.createElement('div');
+      el.className = 'boot-step';
+      el.id = 'step-' + phase.id;
+      el.innerHTML = `
+        <span class="step-icon">○</span>
+        <span class="step-name">${phase.name}</span>
+        <div class="step-bar"><div class="step-bar-fill"></div></div>
+      `;
+      container.appendChild(el);
+    });
+  }
+
+  function advanceBootStep(phaseName, percent) {
+    const idx = STEP_PHASES.findIndex(p => p.id === phaseName);
+    if (idx < 0) return;
+
+    // Update progress bar
+    document.getElementById('prog-fill').style.width = percent + '%';
+
+    // Mark steps
+    document.querySelectorAll('.boot-step').forEach((el, i) => {
+      el.classList.remove('active', 'done');
+      if (i < idx) {
+        el.classList.add('done');
+        el.querySelector('.step-icon').innerText = '✓';
+      } else if (i === idx) {
+        el.classList.add('active');
+        el.querySelector('.step-icon').innerText = '▶';
+      } else {
+        el.querySelector('.step-icon').innerText = '○';
+      }
+    });
+
+    if (idx > currentStepIndex) {
+      currentStepIndex = idx;
+    }
+  }
+
+  function dismissBootOverlay() {
+    setTimeout(() => {
+      const overlay = document.getElementById('startup-overlay');
+      overlay.classList.add('hidden');
+
+      // Unlock controls
+      document.getElementById('panel-left').classList.remove('locked');
+      document.getElementById('panel-right').classList.remove('locked');
+      document.getElementById('btn-calib').disabled = false;
+    }, 600);
+  }
+
+  initBootSteps();
+
+  // ── WebSocket ────────────────────────────────────────────────────────────
   let wsReady = false;
   const connectWS = () => {
-    const ws = new WebSocket(`ws://` + location.hostname + `/ws`);
-    //                                                     ↑ CORRECT: /ws not :81/ws
+    const ws = new WebSocket(`ws://${location.hostname}:81/`);
     window.ws = ws;
+
     ws.onopen = () => {
       wsReady = true;
-      document.getElementById('net-stat').innerText = "LINK OK";
-      document.getElementById('net-stat').className = "stat-badge ok";
+      setBadge('net-stat', 'LINK OK', true);
+      advanceBootStep('websocket', 5);
     };
+
     ws.onclose = () => {
       wsReady = false;
-      document.getElementById('net-stat').innerText = "RECONNECTING...";
-      document.getElementById('net-stat').className = "stat-badge bad";
+      setBadge('net-stat', 'RECONNECTING...', false);
       setTimeout(connectWS, 2000);
     };
-    ws.onerror = () => ws.close();
+
+    ws.onerror = (e) => {
+      console.error('[WS Error]', e);
+      ws.close();
+    };
+
     ws.onmessage = onMessage;
   };
+
   connectWS();
 
   window.send = (data) => {
-    if (wsReady && window.ws.readyState === 1) window.ws.send(JSON.stringify(data));
+    if (wsReady && window.ws && window.ws.readyState === WebSocket.OPEN) {
+      window.ws.send(JSON.stringify(data));
+    }
   };
 
+  // ── Message handler ────────────────────────────────────────────────────────
   const onMessage = (e) => {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.p !== undefined) {  // ← CORRECT: "p" (pitch) not "pitch"
-        document.getElementById('imu-stat').innerText = "IMU LIVE";
-        document.getElementById('imu-stat').className = "stat-badge ok";
-        document.getElementById('val-p').innerText = d.p.toFixed(1);
-        document.getElementById('val-r').innerText = d.r.toFixed(1);  // ← CORRECT: "r" not "roll"
-        body.rotation.x = d.p * 0.01745;
-        body.rotation.z = d.r * 0.01745;
-        document.getElementById('sky').style.transform = `translateY(` + (d.p * 3.0) + `px) rotate(` + (-d.r) + `deg)`;
+    let d;
+    try { d = JSON.parse(e.data); }
+    catch { return; }
+
+    if (d.error) {
+      console.warn('[SERVER ERROR]', d.error);
+      return;
+    }
+
+    // Startup progress
+    if (d.startup !== undefined) {
+      advanceBootStep(d.startup, d.pct || 0);
+      if (d.startup === 'ready') {
+        dismissBootOverlay();
       }
-      if (d.l) {  // ← CORRECT: "l" (leg array)
-        d.l.forEach((ang, i) => {
-          const offRad = legsVis[i].userData.off * 0.01745;
-          legsVis[i].userData.h.rotation.y  = offRad + (ang[0] * 0.01745);
-          legsVis[i].userData.tw.rotation.x = ang[3] * 0.01745;
-          legsVis[i].userData.f.rotation.z  = ang[1] * 0.01745;
-          legsVis[i].userData.t.rotation.z  = ang[2] * 0.01745;
-        });
-        if (d.l[window.activeLeg]) {
-          document.getElementById('val-c').innerText  = d.l[window.activeLeg][0].toFixed(1) + '°';
-          document.getElementById('val-f').innerText  = d.l[window.activeLeg][1].toFixed(1) + '°';
-          document.getElementById('val-t').innerText  = d.l[window.activeLeg][2].toFixed(1) + '°';
-          document.getElementById('val-tw').innerText = d.l[window.activeLeg][3].toFixed(1) + '°';
+      return;
+    }
+
+    // IMU telemetry
+    if (d.p !== undefined && d.r !== undefined) {
+      setBadge('imu-stat', 'IMU LIVE', true);
+      document.getElementById('val-p').innerText = d.p.toFixed(1);
+      document.getElementById('val-r').innerText = d.r.toFixed(1);
+
+      const cp = Math.max(-45, Math.min(45, d.p));
+      const cr = Math.max(-45, Math.min(45, d.r));
+      body.rotation.x = cp * 0.01745;
+      body.rotation.z = cr * 0.01745;
+
+      const py = Math.max(-60, Math.min(60, cp * 3.0));
+      document.getElementById('sky').style.transform = 
+        `translateY(${py}px) rotate(${-cr}deg)`;
+    }
+
+    // Leg angles
+    if (d.l && Array.isArray(d.l) && d.l.length >= 4) {
+      for (let i = 0; i < 4; i++) {
+        if (d.l[i] && Array.isArray(d.l[i]) && d.l[i].length >= 4 && legsVis[i]) {
+          const off = legsVis[i].userData.off * 0.01745;
+          legsVis[i].userData.h.rotation.y = off + d.l[i][0] * 0.01745;
+          legsVis[i].userData.tw.rotation.x = d.l[i][3] * 0.01745;
+          legsVis[i].userData.f.rotation.z = d.l[i][1] * 0.01745;
+          legsVis[i].userData.t.rotation.z = d.l[i][2] * 0.01745;
         }
       }
-    } catch (err) { console.error('Parse error:', err); }
+      const al = d.l[window.activeLeg];
+      if (al && al.length >= 4) {
+        document.getElementById('val-c').innerText = al[0].toFixed(1) + '°';
+        document.getElementById('val-f').innerText = al[1].toFixed(1) + '°';
+        document.getElementById('val-t').innerText = al[2].toFixed(1) + '°';
+        document.getElementById('val-tw').innerText = al[3].toFixed(1) + '°';
+      }
+    }
   };
 
-  setInterval(() => window.send({cmd:'ping'}), 1000);
+  setInterval(() => window.send({cmd: 'ping'}), 1000);
 
+  // ── Three.js scene ─────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x050505);
+
   const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
   cam.position.set(0, 400, 500);
-  const ren = new THREE.WebGLRenderer({antialias:true});
+
+  const ren = new THREE.WebGLRenderer({antialias: true});
+  ren.setPixelRatio(window.devicePixelRatio || 1);
   ren.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(ren.domElement);
-  new OrbitControls(cam, ren.domElement);
+
+  const controls = new OrbitControls(cam, ren.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+
   scene.add(new THREE.GridHelper(1000, 100, 0x7c2ae8, 0x111111));
   scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
   const spot = new THREE.PointLight(0x7c2ae8, 1.5, 1000);
   spot.position.set(0, 500, 0);
   scene.add(spot);
-  const matWire  = new THREE.MeshBasicMaterial({color:0x7c2ae8, wireframe:true, opacity:0.4, transparent:true});
-  const matSolid = new THREE.MeshStandardMaterial({color:0x111111, roughness:0.7});
+
+  const matWire = new THREE.MeshBasicMaterial({
+    color: 0x7c2ae8,
+    wireframe: true,
+    opacity: 0.4,
+    transparent: true
+  });
+  const matSolid = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    roughness: 0.7
+  });
+
   const body = new THREE.Group();
-  body.add(new THREE.Mesh(new THREE.BoxGeometry(77,46,134), matSolid));
-  body.add(new THREE.Mesh(new THREE.BoxGeometry(77,46,134), matWire));
+  body.add(new THREE.Mesh(new THREE.BoxGeometry(77, 46, 134), matSolid));
+  body.add(new THREE.Mesh(new THREE.BoxGeometry(77, 46, 134), matWire));
   body.add(new THREE.AxesHelper(60));
   body.position.y = 23;
   scene.add(body);
@@ -157,39 +739,43 @@
   const createLeg = (x, z, mountDeg) => {
     const root = new THREE.Group();
     root.position.set(x, 23, z);
+
     const hip = new THREE.Group();
     hip.rotation.y = mountDeg * 0.01745;
     root.add(hip);
+
     const twist = new THREE.Group();
     twist.position.x = 20;
     hip.add(twist);
+
     const femur = new THREE.Group();
     femur.position.x = 46;
     twist.add(femur);
+
     const tibia = new THREE.Group();
     tibia.position.x = 69;
     femur.add(tibia);
-    // ← CORRECT: Per-leg geometry (не shared)
-    hip.add(new THREE.Mesh(new THREE.BoxGeometry(20,10,10).translate(10,0,0), matWire));
-    twist.add(new THREE.Mesh(new THREE.BoxGeometry(46,12,12).translate(23,0,0), matWire));
-    femur.add(new THREE.Mesh(new THREE.BoxGeometry(69,8,8).translate(34.5,0,0), matWire));
-    tibia.add(new THREE.Mesh(new THREE.BoxGeometry(123,5,5).translate(61.5,0,0), matWire));
-    root.userData = { h:hip, tw:twist, f:femur, t:tibia, off:mountDeg };
+
+    // Per-leg geometry (not shared)
+    hip.add(new THREE.Mesh(
+      new THREE.BoxGeometry(20, 10, 10).translate(10, 0, 0), matWire));
+    twist.add(new THREE.Mesh(
+      new THREE.BoxGeometry(46, 12, 12).translate(23, 0, 0), matWire));
+    femur.add(new THREE.Mesh(
+      new THREE.BoxGeometry(69, 8, 8).translate(34.5, 0, 0), matWire));
+    tibia.add(new THREE.Mesh(
+      new THREE.BoxGeometry(123, 5, 5).translate(61.5, 0, 0), matWire));
+
+    root.userData = {h: hip, tw: twist, f: femur, t: tibia, off: mountDeg};
     scene.add(root);
     legsVis.push(root);
   };
+
   createLeg(-38.8, -67.4, 135);
   createLeg(38.8, -67.4, 45);
-  createLeg(-38.8,  67.4, 225);
-  createLeg(38.8,  67.4, -45);
+  createLeg(-38.8, 67.4, 225);
+  createLeg(38.8, 67.4, -45);
 
-  const renderLoop = () => {
-    requestAnimationFrame(renderLoop);
-    ren.render(scene, cam);
-  };
-  renderLoop();
-
-  // ← CORRECT: Resize handler с canvas обновлением
   window.addEventListener('resize', () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -198,37 +784,79 @@
     ren.setSize(w, h);
   });
 
+  const renderLoop = () => {
+    requestAnimationFrame(renderLoop);
+    controls.update();
+    ren.render(scene, cam);
+  };
+  renderLoop();
+
+  // ── Gamepad input ──────────────────────────────────────────────────────────
   setInterval(() => {
-    const gps = navigator.getGamepads();
-    if (gps && gps[0]) {
-      const gp = gps[0];
-      // ← CORRECT: proper transform calc (не -50%)
-      document.getElementById('dot-l').style.transform = `translate(calc(-50% + ` + (gp.axes[0]*50) + `px), calc(-50% + ` + (gp.axes[1]*50) + `px))`;
-      document.getElementById('dot-r').style.transform = `translate(calc(-50% + ` + (gp.axes[2]*50) + `px), calc(-50% + ` + (gp.axes[3]*50) + `px))`;
-      window.send({ cmd:'pad', lx:gp.axes[0], ly:gp.axes[1], rx:gp.axes[2], ry:gp.axes[3], btn:gp.buttons.map(b => b.pressed?1:0) });
-    }
+    const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+    if (!gps || !gps[0]) return;
+
+    const gp = gps[0];
+    const lx = Math.max(-1, Math.min(1, gp.axes[0])) * 50;
+    const ly = Math.max(-1, Math.min(1, gp.axes[1])) * 50;
+    const rx = Math.max(-1, Math.min(1, gp.axes[2])) * 50;
+    const ry = Math.max(-1, Math.min(1, gp.axes[3])) * 50;
+
+    document.getElementById('dot-l').style.transform =
+      `translate(calc(-50% + ${lx}px), calc(-50% + ${ly}px))`;
+    document.getElementById('dot-r').style.transform =
+      `translate(calc(-50% + ${rx}px), calc(-50% + ${ry}px))`;
+
+    window.send({
+      cmd: 'pad',
+      lx: gp.axes[0],
+      ly: gp.axes[1],
+      rx: gp.axes[2],
+      ry: gp.axes[3],
+      btn: Array.from(gp.buttons).map(b => b.pressed ? 1 : 0)
+    });
   }, 50);
 
+  // ── UI Controls ────────────────────────────────────────────────────────────
   window.activeLeg = 0;
   let walking = false;
+
   window.toggleWalk = () => {
     walking = !walking;
     const btn = document.getElementById('btn-walk');
-    btn.innerText = walking ? "STOP WALK" : "AUTO WALK";
-    btn.style.color = walking ? "#fff" : "#aaa";
-    btn.style.background = walking ? "rgba(124,42,232,0.3)" : "transparent";
-    btn.style.borderColor = walking ? "var(--accent)" : "#444";
-    window.send({cmd:'mode', val: walking ? 'walk' : 'stand', auto: walking});
+    btn.innerText = walking ? 'STOP WALK' : 'AUTO WALK';
+    btn.style.color = walking ? '#fff' : '#aaa';
+    btn.style.background = walking ? 'rgba(124,42,232,0.3)' : 'transparent';
+    btn.style.borderColor = walking ? 'var(--accent)' : '#444';
+    window.send({cmd: 'mode', val: walking ? 'walk' : 'stand', auto: walking});
   };
+
   window.selLeg = (id) => {
     window.activeLeg = id;
-    document.querySelectorAll('.panel button.sel').forEach(b => b.classList.remove('sel'));
-    document.getElementById('l'+id).classList.add('sel');
-    window.send({cmd:'active', val:id});
+    document.querySelectorAll('#panel-right .sel').forEach(b => b.classList.remove('sel'));
+    document.getElementById('l' + id).classList.add('sel');
+    window.send({cmd: 'active', val: id});
   };
-  window.move      = (id, val) => window.send({cmd:'servo', leg:window.activeLeg, id:id, val:parseFloat(val)});
-  window.startTest = (t)       => { document.getElementById('stop-btn').style.display='block';  window.send({cmd:'test',      val:parseInt(t)}); };
-  window.stopTest  = ()        => { document.getElementById('stop-btn').style.display='none';   window.send({cmd:'test_stop'}); };
+
+  window.move = (id, val) => {
+    window.send({cmd: 'servo', leg: window.activeLeg, id, val: parseFloat(val)});
+  };
+
+  window.startTest = (t) => {
+    document.getElementById('stop-btn').style.display = 'block';
+    window.send({cmd: 'test', val: parseInt(t)});
+  };
+
+  window.stopTest = () => {
+    document.getElementById('stop-btn').style.display = 'none';
+    window.send({cmd: 'test_stop'});
+  };
+
+  function setBadge(id, text, ok) {
+    const el = document.getElementById(id);
+    el.innerText = text;
+    el.className = 'stat-badge ' + (ok ? 'ok' : 'bad');
+  }
 </script>
 </body>
 </html>
